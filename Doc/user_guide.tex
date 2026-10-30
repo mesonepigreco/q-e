@@ -915,6 +915,37 @@ Some functionals in \libxc\ incorporate the exchange part and the correlation on
 \subsubsection{Special cases}
 A number of \libxc\ functional routines need extra information on input and/or provide only partial information on output (e.g. the energy or the potential only). In these cases the use of such functionals may not be straightforward and, depending on the cases, may require some work on the \qe\ source code.
 %
+\paragraph{Tran--Blaha mBJ (TB09).}
+In PW, \texttt{input\_dft='TB09'} selects the Tran--Blaha model exchange
+potential with Perdew--Wang LDA correlation. Libxc is required. PW supplies
+the spin-resolved density Laplacian and updates
+\[
+ c=-0.012+1.023\left[\frac{1}{V}\int_V
+             \frac{|\nabla\rho(\mathbf r)|}{\rho(\mathbf r)}d\mathbf r\right]^{1/2}
+\]
+from the total density at each potential update (atomic units). The density
+includes the pseudopotential core correction when present; regions with
+density at or below $10^{-12}$ bohr$^{-3}$ contribute zero to the integral.
+The average covers physical FFT points and is independent of k-point pools.
+The code prints both $c$ and the density average for reproducibility.
+
+This is a model potential without a parent exchange-energy functional.
+Use it for electronic structure at a fixed geometry, obtained for example
+with PBE. Total energies are not variational; force, stress, and structural
+relaxation requests are rejected. This implementation currently supports
+CPU execution with norm-conserving pseudopotentials and collinear spin.
+The usual restrictions on meta-GGA calculations still apply.
+
+The original potential was calibrated with all-electron densities. A
+pseudodensity or a partial core correction does not reconstruct that density.
+Consequently, agreement with an all-electron or PAW band gap is a separate
+pseudopotential-validation question, even when the local potential formula
+is evaluated correctly. See Tran and Blaha, Phys. Rev. Lett. 102, 226401
+(2009), and Borlido et al., J. Chem. Theory Comput. 15, 5069 (2019).
+For XClib callers, \texttt{xc\_metagcx} requires the optional
+\texttt{lapl\_} argument when using Libxc TB09 exchange. The caller remains
+responsible for setting $c$; the standalone local tests explicitly set it.
+
 \paragraph{External parameters.}
 Several functionals in \libxc\ depend on one or more external parameters. Some of these can be recovered inside \qe, some others are not directly available. In all these cases a direct intervention on the \qe\ source code might be necessary in order to be able to properly use such functionals. However two routines have been defined in the XC library of \qe\ that ease the task of setting and recovering the external parameters in \libxc:
 \begin{itemize}

@@ -71,7 +71,7 @@ MODULE funct
   !              "ev93"  = "sla+pw+evx+nogc"   = Engel-Vosko
   !              "tpss"  = "sla+pw+tpss+tpss"  = TPSS Meta-GGA
   !              "m06l"  = "nox+noc+m6lx+m6lc" = M06L Meta-GGA
-  !              "tb09"  = "sla+pw+tb09+tb09"  = TB09 Meta-GGA
+  !              "tb09"  = TB09 model exchange potential + PW LDA correlation
   !              "pbe0"  = "pb0x+pw+pb0x+pbc"  = PBE0
   !              "b86bx" = "pb0x+pw+b86x+pbc"  = B86bPBE hybrid
   !              "bhahlyp"="pb0x+pw+b88x+blyp" = Becke half-and-half LYP

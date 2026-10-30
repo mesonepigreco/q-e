@@ -159,9 +159,11 @@ CONTAINS
       !
       SELECT CASE ( imeta )
       CASE ( 3 )
-        ! TB09
+        ! TB09: model exchange potential plus Perdew-Wang LDA correlation.
         imeta  = 208
-        imetac = 231
+        imetac = 0
+        icorr = 4
+        is_libxc(6) = .FALSE.
       CASE ( 5 )
         ! SCAN
         imeta = 263
@@ -193,8 +195,9 @@ CONTAINS
     !
     ! ... warning for MGGA exch and non-MGGA corr or vice versa
     !
-    IF ( ((imeta==0 .AND. iexch+igcx/=0) .AND. (imetac/=0 .AND. icorr+igcc==0)) .OR. &
-         ((imeta/=0 .AND. iexch+igcx==0) .AND. (imetac==0 .AND. icorr+igcc/=0)) )   &
+    IF ( ( ((imeta==0 .AND. iexch+igcx/=0) .AND. (imetac/=0 .AND. icorr+igcc==0)) .OR. &
+         ((imeta/=0 .AND. iexch+igcx==0) .AND. (imetac==0 .AND. icorr+igcc/=0)) ) &
+         .AND. .NOT.(is_libxc(5) .AND. imeta==208 .AND. icorr==4 .AND. imetac==0) ) &
       CALL xclib_infomsg( 'matching_shortIDs', 'WARNING: an MGGA functional of one &
                           &kind has been read together with a non-MGGA one of the &
                           &other kind. This is not a standard choice and has not &
@@ -992,15 +995,15 @@ CONTAINS
   !-----------------------------------------------------------------------
   FUNCTION xclib_dft_is( what )
      !---------------------------------------------------------------------
-     !! Find if DFT has gradient correction, meta or hybrid.
+     !! Identify gradient, meta, hybrid, or TB09 exchange.
      !
-     USE dft_setting_params,  ONLY: isgradient, ismeta, ishybrid
+     USE dft_setting_params,  ONLY: isgradient, ismeta, ishybrid, imeta, is_libxc
      !
      IMPLICIT NONE
      !
      LOGICAL :: xclib_dft_is
      CHARACTER(len=*) :: what
-     !! gradient, meta or hybrid
+     !! gradient, meta, hybrid, or TB09
      !
      CHARACTER(len=15) :: cwhat
      INTEGER :: i, ln
@@ -1018,6 +1021,9 @@ CONTAINS
        xclib_dft_is = ismeta
      CASE( 'HYBRID' )
        xclib_dft_is = ishybrid
+     CASE( 'TB09' )
+       ! Identifies Libxc TB09 exchange also in an explicit XC-ID string.
+       xclib_dft_is = is_libxc(5) .AND. imeta==208
      CASE DEFAULT
        CALL xclib_error( 'xclib_dft_is', 'wrong input', 1 )
      END SELECT
@@ -1186,7 +1192,7 @@ CONTAINS
           IF ( libxc_flags(iid,14) == 1 ) &
             WRITE(stdout,'(4X,"WARNING: libxc functional with ID ",I4," is still ", &
                       &/4X,"in development.")' ) id_vec(iid)
-          IF ( libxc_flags(iid,15) == 1 ) &
+          IF ( libxc_flags(iid,15) == 1 .AND. id_vec(iid)/=208 ) &
             WRITE(stdout,'(/5X,"WARNING: libxc functional with ID ",I4," depends on",  &
                           &/5X," the laplacian of the density, which is currently set",&
                           &/5X," to zero.")' ) id_vec(iid)
@@ -1341,7 +1347,8 @@ CONTAINS
           shortname = 'RSCAN'
        ELSEIF (imeta==497 .AND. imetac==498) THEN
           shortname = 'R2SCAN'
-       ELSEIF (imeta==208 .AND. imetac==231) THEN
+       ELSEIF (imeta==208 .AND. imetac==0 .AND. icorr==4 .AND. &
+               iexch==0 .AND. igcx==0 .AND. igcc==0 .AND. .NOT.is_libxc(2)) THEN
           shortname = 'TB09'
        ENDIF
     ENDIF

@@ -118,3 +118,14 @@ if(QE_ENABLE_TEST)
         set_tests_properties(test_qe_xclib_exe_test PROPERTIES DEPENDS test_qe_xclib_gen_test)
     endif()
 endif(QE_ENABLE_TEST)
+
+# TB09 is a model potential: exercise its Laplacian and spin interface
+# independently of the energy-functional tests above.
+if(QE_ENABLE_TEST AND QE_ENABLE_LIBXC)
+    qe_add_executable(qe_xclib_tb09_test test_tb09.f90)
+    target_link_libraries(qe_xclib_tb09_test PRIVATE qe_xclib qe_external_libxc)
+    add_test(NAME test_qe_xclib_tb09 COMMAND qe_xclib_tb09_test)
+    add_test(NAME test_qe_xclib_tb09_missing_laplacian
+             COMMAND qe_xclib_tb09_test missing-laplacian)
+    set_tests_properties(test_qe_xclib_tb09_missing_laplacian PROPERTIES WILL_FAIL TRUE)
+endif()

@@ -65,7 +65,7 @@ SUBROUTINE setup()
   USE wvfct,              ONLY : nbnd, nbndx
   USE control_flags,      ONLY : tr2, ethr, lscf, lbfgs, lmd, david, lecrpa,  &
                                  isolve, niter, noinv, ts_vdw, tstress, &
-                                 lbands, gamma_only, restart, use_spinflip, symm_by_label
+                                 lbands, gamma_only, restart, use_spinflip, symm_by_label, lforce, use_gpu
   USE diag_direct,        ONLY : diag_direct_check_compat
   USE cellmd,             ONLY : calc
   USE upf_ions,           ONLY : n_atom_wfc
@@ -132,6 +132,13 @@ SUBROUTINE setup()
                   'Orbital Magnetization not implemented with USPP/PAW', 1 )
   END IF
 
+  IF ( xclib_dft_is('TB09') ) THEN
+     IF (lforce .OR. tstress .OR. lbfgs .OR. lmd) CALL errore( 'setup', &
+       'TB09 is a model potential: total-energy forces and stress are not available', 1 )
+     IF (use_gpu) CALL errore( 'setup', 'TB09 density Laplacian is not ported to GPU', 1 )
+     CALL infomsg( 'setup', 'TB09: electronic structure only; total energies are not variational' )
+  ENDIF
+  !
   IF ( xclib_dft_is('hybrid') ) THEN
      IF ( lberry ) CALL errore( 'setup ', &
                          'hybrid XC not allowed in Berry-phase calculations',1 )

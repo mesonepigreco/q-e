@@ -88,11 +88,12 @@ MODULE xc_lib
   !
   INTERFACE xc_metagcx
      SUBROUTINE xc_metagcx( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, &
-                            v1c, v2c, v3c, gpu_args_ )
+                            v1c, v2c, v3c, gpu_args_, lapl_ )
        USE kind_l, ONLY: DP
        IMPLICIT NONE
        INTEGER,  INTENT(IN) :: length, ns, np
        REAL(DP), INTENT(IN) :: rho(length,ns), grho(3,length,ns), tau(length,ns)
+       REAL(DP), OPTIONAL, INTENT(IN) :: lapl_(length,ns)
        REAL(DP), INTENT(OUT) :: ex(length), ec(length)
        REAL(DP), INTENT(OUT) :: v1x(length,ns), v2x(length,ns), v3x(length,ns)
        REAL(DP), INTENT(OUT) :: v1c(length,ns), v2c(np,length,ns), v3c(length,ns)

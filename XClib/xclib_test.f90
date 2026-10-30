@@ -171,7 +171,7 @@ PROGRAM xclib_test
   !
   ! ... xml
   INTEGER :: tag_err
-  LOGICAL :: not_found_skip
+  LOGICAL :: not_found_skip, skip_term
   CHARACTER(LEN=1) :: dummy
   CHARACTER(LEN=30) :: filename_xml=""
   CHARACTER(LEN=48) :: xc_data="XC_DATA__________"
@@ -576,6 +576,9 @@ PROGRAM xclib_test
     imeta1  = xclib_get_ID('MGGA','EXCH')
     imetac1 = xclib_get_ID('MGGA','CORR')
     IF (imeta1+imetac1/=0) MGGA = .TRUE.
+    ! This driver tests one local family at a time. TB09's separate LDA
+    ! correlation and its alias are checked by test_tb09.f90.
+    IF (xclib_dft_is('TB09')) LDA = .FALSE.
     !
     id_vec(1) = iexch1  ;  id_vec(2) = icorr1
     id_vec(3) = igcx1   ;  id_vec(4) = igcc1
@@ -695,15 +698,21 @@ PROGRAM xclib_test
     ENDIF
     !
     IF (dft_init=='ALL_TERMS') THEN
-      IF ( (LDA  .AND. exc_term .AND. dft_LDAx(iexch1)%wrn(1:12)=='never called') .OR. &
-           (LDA  .AND. cor_term .AND. dft_LDAx(icorr1)%wrn(1:12)=='never called') .OR. &
-           (GGA  .AND. exc_term .AND. dft_GGAx(igcx1)%wrn(1:12) =='never called') .OR. &
-           (GGA  .AND. cor_term .AND. dft_GGAx(igcc1)%wrn(1:12) =='never called') .OR. &
-           (MGGA .AND. exc_term .AND. dft_GGAx(imeta1)%wrn(1:12)=='never called') ) THEN
-        !
+      ! Use the QE catalog index for metadata, not a translated Libxc ID.
+      ! Separate the branches: Fortran need not short-circuit logical tests.
+      skip_term = .FALSE.
+      IF (LDA) THEN
+        IF (exc_term) skip_term = dft_LDAx(iexch1)%wrn(1:12)=='never called'
+        IF (cor_term) skip_term = skip_term .OR. dft_LDAc(icorr1)%wrn(1:12)=='never called'
+      ELSEIF (GGA) THEN
+        IF (exc_term) skip_term = dft_GGAx(igcx1)%wrn(1:12)=='never called'
+        IF (cor_term) skip_term = skip_term .OR. dft_GGAc(igcc1)%wrn(1:12)=='never called'
+      ELSEIF (MGGA) THEN
+        skip_term = dft_MGGA(idterm)%wrn(1:12)=='never called'
+      ENDIF
+      IF (skip_term) THEN
         IF (mype==root) CALL print_test_status( skipped )
         CYCLE
-        !
       ENDIF
     ENDIF
     !
@@ -1110,7 +1119,7 @@ PROGRAM xclib_test
     IF ( MGGA ) THEN
        IF (mype==root) time(5) = get_wall_time()
        CALL xc_metagcx( nnr, ns, np, rho, grho, tau, ex1, ec1, v1x1, &
-                        v2x1, v3x1, v1c1, v2cm1, v3c1 )
+                        v2x1, v3x1, v1c1, v2cm1, v3c1, lapl_=0._DP*rho )
        IF (mype==root) time(6) = get_wall_time()
        v2c1 = v2cm1(1,:,:)
     ENDIF

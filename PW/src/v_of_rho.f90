@@ -126,12 +126,13 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, tau_core, etxc, vtxc, v, kedtaur
   USE constants,        ONLY : e2, eps8
   USE io_global,        ONLY : stdout
   USE fft_base,         ONLY : dfftp
-  USE gvect,            ONLY : g, ngm
+  USE gvect,            ONLY : g, gg, ngm
+  USE fft_types,        ONLY : fft_index_to_3d
   USE lsda_mod,         ONLY : nspin
   USE cell_base,        ONLY : omega
   USE funct,            ONLY : dft_is_nonlocc, nlc
   USE scf,              ONLY : scf_type
-  USE xc_lib,           ONLY : xc_metagcx, xclib_get_ID
+  USE xc_lib,           ONLY : xc_metagcx, xclib_get_ID, xclib_dft_is, set_libxc_ext_param
   USE mp,               ONLY : mp_sum
   USE mp_bands,         ONLY : intra_bgrp_comm
   !
@@ -159,7 +160,10 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, tau_core, etxc, vtxc, v, kedtaur
   REAL(DP) :: zeta, rh, sgn_is
   REAL(DP) :: etxc0, vtxc0
   INTEGER  :: k, ipol, is, np, dfftp_nnr
-  LOGICAL  :: lda_gga_terms
+  LOGICAL  :: lda_gga_terms, tb09, offrange
+  INTEGER :: ix, iy, iz
+  REAL(DP) :: tb09_average, tb09_c, tb09_density
+  REAL(DP), ALLOCATABLE :: lapl_rho(:,:), rho_tb09(:)
   !
   REAL(DP), ALLOCATABLE :: ex(:), ec(:), v0(:,:)
   REAL(DP), ALLOCATABLE :: v1x(:,:), v2x(:,:), v3x(:,:)
@@ -175,6 +179,7 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, tau_core, etxc, vtxc, v, kedtaur
   REAL(DP), PARAMETER :: eps12 = 1.0d-12, zero=0._dp
   !
   CALL start_clock( 'v_xc_meta' )
+  tb09 = xclib_dft_is('TB09')
   !
   etxc = zero
   vtxc = zero
@@ -225,6 +230,35 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, tau_core, etxc, vtxc, v, kedtaur
   !$acc end data
   DEALLOCATE( rhogsum )
   !
+  IF (tb09) THEN
+    ! TB09 is a local model potential. Supply the BR density Laplacian and
+    ! update the cell-dependent coefficient from the TOTAL (spin-summed)
+    ! density, using the same core contribution as the local XC inputs.
+    ! The FFT grid can contain padding or unused workspace: do not include
+    ! those entries in the cell average, or sum over replicated k-point pools.
+    ALLOCATE( lapl_rho(dfftp%nnr,nspin), rho_tb09(dfftp%nnr) )
+    !$acc update self( grho, rho%of_r )
+    DO is = 1, nspin
+      sgn_is = (-1.d0)**(is+1)
+      rho_tb09 = fac*rho_core + (rho%of_r(:,1) + sgn_is*rho%of_r(:,nspin))*0.5_dp
+      CALL fft_laplacian( dfftp, rho_tb09, gg, lapl_rho(:,is) )
+    ENDDO
+    tb09_average = 0._dp
+    DO k = 1, dfftp%nnr
+      CALL fft_index_to_3d( k, dfftp, ix, iy, iz, offrange )
+      IF (offrange) CYCLE
+      tb09_density = rho%of_r(k,1) + rho_core(k)
+      IF (tb09_density > eps12) &
+        tb09_average = tb09_average + SQRT(SUM(SUM(grho(:,k,:),DIM=2)**2))/tb09_density
+    ENDDO
+    CALL mp_sum( tb09_average, dfftp%comm )
+    tb09_average = tb09_average / (REAL(dfftp%nr1,dp)*REAL(dfftp%nr2,dp)*REAL(dfftp%nr3,dp))
+    tb09_c = -0.012_dp + 1.023_dp*SQRT(tb09_average)
+    CALL set_libxc_ext_param( 5, 0, tb09_c )
+    WRITE(stdout,'(5X,"TB09 c = ",F12.8," (average |grad rho|/rho = ",ES14.6,")")') tb09_c, tb09_average
+    DEALLOCATE( rho_tb09 )
+  ENDIF
+  !
   !$acc data copyin( rho%of_r )
   !$acc data create( ex, ec, v1x, v2x, v3x, v1c, v2c, v3c )
   IF (nspin == 1) THEN
@@ -236,8 +270,13 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, tau_core, etxc, vtxc, v, kedtaur
       rhotot(k,1) = rho%of_r(k,1) + rho_core(k)
     ENDDO
     !
-    CALL xc_metagcx( dfftp_nnr, 1, np, rhotot, grho, tau, ex, ec, &
-                     v1x, v2x, v3x, v1c, v2c, v3c, gpu_args_=.TRUE. )
+    IF (tb09) THEN
+      CALL xc_metagcx( dfftp_nnr, 1, np, rhotot, grho, tau, ex, ec, &
+                       v1x, v2x, v3x, v1c, v2c, v3c, gpu_args_=.TRUE., lapl_=lapl_rho )
+    ELSE
+      CALL xc_metagcx( dfftp_nnr, 1, np, rhotot, grho, tau, ex, ec, &
+                       v1x, v2x, v3x, v1c, v2c, v3c, gpu_args_=.TRUE. )
+    ENDIF
     !
     !$acc parallel loop reduction(+:etxc,vtxc,rhoneg1,rhoneg2) present(rho)
     DO k = 1, dfftp_nnr
@@ -272,8 +311,13 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, tau_core, etxc, vtxc, v, kedtaur
         rho_updw(k,2) = ( rho%of_r(k,1) - rho%of_r(k,2) ) * 0.5d0 + fac*rho_core(k)
     ENDDO
     !
-    CALL xc_metagcx( dfftp_nnr, 2, np, rho_updw, grho, tau, ex, ec, &
-                     v1x, v2x, v3x, v1c, v2c, v3c, gpu_args_=.TRUE. )
+    IF (tb09) THEN
+      CALL xc_metagcx( dfftp_nnr, 2, np, rho_updw, grho, tau, ex, ec, &
+                       v1x, v2x, v3x, v1c, v2c, v3c, gpu_args_=.TRUE., lapl_=lapl_rho )
+    ELSE
+      CALL xc_metagcx( dfftp_nnr, 2, np, rho_updw, grho, tau, ex, ec, &
+                       v1x, v2x, v3x, v1c, v2c, v3c, gpu_args_=.TRUE. )
+    ENDIF
     !
     ! ... first term of the gradient correction : D(rho*Exc)/D(rho)
     !
@@ -373,6 +417,7 @@ SUBROUTINE v_xc_meta( rho, rho_core, rhog_core, tau_core, etxc, vtxc, v, kedtaur
     DEALLOCATE(v0)
   ENDIF
   !
+  IF (ALLOCATED(lapl_rho)) DEALLOCATE( lapl_rho )
   DEALLOCATE( tau, grho )
   DEALLOCATE( h )
   !

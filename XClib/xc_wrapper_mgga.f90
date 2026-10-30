@@ -8,11 +8,12 @@
 !
 !-------------------------------------------------------------------------------------
 SUBROUTINE xc_metagcx( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v1c, &
-                       v2c, v3c, gpu_args_ )
+                       v2c, v3c, gpu_args_, lapl_ )
   !----------------------------------------------------------------------------------
   !! Wrapper to gpu or non gpu version of \(\texttt{xc_metagcx}\).
   !
   USE kind_l,               ONLY: DP
+  USE dft_setting_params,   ONLY: imeta, is_libxc
   !
   IMPLICIT NONE
   !
@@ -47,7 +48,17 @@ SUBROUTINE xc_metagcx( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v1
   LOGICAL, INTENT(IN), OPTIONAL :: gpu_args_
   !! whether you wish to run on gpu in case use_gpu is true
   !
+  REAL(DP), INTENT(IN), OPTIONAL :: lapl_(length,ns)
+  !! Density Laplacian in the same spin layout as rho; required for TB09.
+  REAL(DP), ALLOCATABLE :: lapl(:,:)
   LOGICAL :: gpu_args
+  !
+  IF (is_libxc(5) .AND. imeta==208 .AND. .NOT.PRESENT(lapl_)) &
+    CALL xclib_error( 'xc_metagcx', 'TB09 requires the density Laplacian', 1 )
+  ALLOCATE( lapl(length,ns) )
+  lapl = 0._dp
+  IF (PRESENT(lapl_)) lapl = lapl_
+  !$acc data copyin( lapl )
   !
   gpu_args = .FALSE.
   IF ( PRESENT(gpu_args_) ) gpu_args = gpu_args_
@@ -56,17 +67,19 @@ SUBROUTINE xc_metagcx( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v1
     !
     !$acc data present( rho, grho, tau, ex, ec, v1x, v2x, v3x, v1c, v2c, v3c )
     CALL xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v1c, &
-                      v2c, v3c )
+                      v2c, v3c, lapl )
     !$acc end data
     !
   ELSE
     !
     !$acc data copyin( rho, grho, tau ), copyout( ex, ec, v1x, v2x, v3x, v1c, v2c, v3c )
     CALL xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v1c, &
-                      v2c, v3c )
+                      v2c, v3c, lapl )
     !$acc end data
     !
-  ENDIF  
+  ENDIF
+  !$acc end data
+  DEALLOCATE( lapl )
   !
   RETURN
   !
@@ -74,7 +87,7 @@ END SUBROUTINE
 !
 !
 !----------------------------------------------------------------------------------------
-SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v1c, v2c, v3c )
+SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v1c, v2c, v3c, lapl )
   !-------------------------------------------------------------------------------------
   !! Wrapper routine. Calls internal metaGGA drivers or the Libxc ones,
   !! depending on the input choice.
@@ -122,6 +135,9 @@ SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v
   REAL(DP), INTENT(OUT) :: v3c(length,ns)
   !! v3c = D(E_c)/D(tau)
   !
+  REAL(DP), INTENT(IN) :: lapl(length,ns)
+  !! Density Laplacian, or zero for callers that do not require it.
+  !
   ! ... local variables
   !
   INTEGER :: k, is, ipol
@@ -133,7 +149,7 @@ SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v
   REAL(DP), ALLOCATABLE :: ex_lxc(:), ec_lxc(:)
   REAL(DP), ALLOCATABLE :: vx_rho(:), vx_sigma(:), vx_tau(:)
   REAL(DP), ALLOCATABLE :: vc_rho(:), vc_sigma(:), vc_tau(:)
-  REAL(DP), ALLOCATABLE :: lapl_rho(:), vlapl_rho(:) ! not used in QE
+  REAL(DP), ALLOCATABLE :: lapl_rho(:), vlapl_rho(:)
   !
   REAL(DP) :: rh, ggrho2, atau, xcoef
 #if (XC_MAJOR_VERSION > 4)
@@ -143,7 +159,7 @@ SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v
 #endif
 #endif
   !
-  !$acc data present( rho, grho, tau, ex, ec, v1x, v2x, v3x, v1c, v2c, v3c )
+  !$acc data present( rho, grho, tau, lapl, ex, ec, v1x, v2x, v3x, v1c, v2c, v3c )
   !
 #if defined(__LIBXC)
   lengthxc = length
@@ -191,7 +207,7 @@ SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v
       sigma(k) = MAX( grho(1,k,1)**2 + grho(2,k,1)**2 + grho(3,k,1)**2, &
                       grho2_threshold_mgga )
       tau_lxc(k) = MAX( tau(k,1), tau_threshold_mgga )
-      lapl_rho(k) = 0.d0
+      lapl_rho(k) = lapl(k,1)
     ENDDO
     !
   ELSE
@@ -208,8 +224,8 @@ SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v
                            grho2_threshold_mgga )
        tau_lxc(2*k-1) = MAX( tau(k,1), small )
        tau_lxc(2*k)   = MAX( tau(k,2), small )
-       lapl_rho(2*k-1) = 0.d0
-       lapl_rho(2*k)   = 0.d0
+       lapl_rho(2*k-1) = lapl(k,1)
+       lapl_rho(2*k)   = lapl(k,2)
     ENDDO
     !
   ENDIF
@@ -267,8 +283,8 @@ SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v
       !$acc parallel loop
       DO k = 1, length
         IF ( ABS(rho_lxc(k))<=rho_threshold_mgga .OR. &
-             sigma(k)<=grho2_threshold_mgga      .OR. &
-             ABS(tau_lxc(k))<=rho_threshold_mgga ) THEN
+             (imeta/=208 .AND. (sigma(k)<=grho2_threshold_mgga .OR. &
+                               ABS(tau_lxc(k))<=rho_threshold_mgga)) ) THEN
           ex(k) = 0.d0    ; v1x(k,1) = 0.d0
           v2x(k,1) = 0.d0 ; v3x(k,1) = 0.d0
           CYCLE
@@ -289,8 +305,8 @@ SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v
         ENDIF
         ex(k) = xcoef * ex_lxc(k) * (rho_lxc(2*k-1)+rho_lxc(2*k))
         IF ( ABS(rho_lxc(2*k-1))>rho_threshold_mgga .AND. &
-             sigma(3*k-2)>grho2_threshold_mgga      .AND. &
-             ABS(tau_lxc(2*k-1))>tau_threshold_mgga ) THEN
+             (imeta==208 .OR. (sigma(3*k-2)>grho2_threshold_mgga .AND. &
+                              ABS(tau_lxc(2*k-1))>tau_threshold_mgga)) ) THEN
           v1x(k,1) = xcoef * vx_rho(2*k-1)
           v2x(k,1) = xcoef * vx_sigma(3*k-2)*2.d0
           v3x(k,1) = xcoef * vx_tau(2*k-1)
@@ -298,8 +314,8 @@ SUBROUTINE xc_metagcx_( length, ns, np, rho, grho, tau, ex, ec, v1x, v2x, v3x, v
           v1x(k,1) = 0.d0 ; v2x(k,1) = 0.d0 ; v3x(k,1) = 0.d0
         ENDIF
         IF ( ABS(rho_lxc(2*k))>rho_threshold_mgga .AND. &
-             sigma(3*k)>grho2_threshold_mgga      .AND. &
-             ABS(tau_lxc(2*k))>tau_threshold_mgga ) THEN
+             (imeta==208 .OR. (sigma(3*k)>grho2_threshold_mgga .AND. &
+                              ABS(tau_lxc(2*k))>tau_threshold_mgga)) ) THEN
           v1x(k,2) = xcoef * vx_rho(2*k)
           v2x(k,2) = xcoef * vx_sigma(3*k)*2.d0
           v3x(k,2) = xcoef * vx_tau(2*k)

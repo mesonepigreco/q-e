@@ -1,0 +1,119 @@
+{
+  "upstream_commit": "61569eb480231b649c47f631df9c5c83537df461",
+  "Libxc": "7.0.0",
+  "conv_thr_Ry": 1e-10,
+  "stock": {
+    "pseudo_sha256": "d42702eef81fd417a503bc33e1756081d012b398c46ad9c2955aad963a1760c7",
+    "runs": [
+      {
+        "functional": "PBE",
+        "ecutwfc_Ry": 40,
+        "kmesh": 8,
+        "a_Angstrom": 5.431,
+        "path": "Gamma-X, 81 points; Si VBM at Gamma, CBM on Delta",
+        "gap_eV": 0.598622642515962,
+        "vbm_eV": 6.226433778755706,
+        "cbm_eV": 6.825056421271668,
+        "cbm_k_cartesian_QE": "0.000000000000000E+000  8.375000000000000E-001  0.000000000000000E+000",
+        "Botti2019_eV": 0.6187,
+        "difference_from_Botti_eV": -0.02007735748403805
+      },
+      {
+        "functional": "PBE",
+        "ecutwfc_Ry": 60,
+        "kmesh": 12,
+        "a_Angstrom": 5.431,
+        "path": "Gamma-X, 81 points; Si VBM at Gamma, CBM on Delta",
+        "gap_eV": 0.5992489345933585,
+        "vbm_eV": 6.224815789906813,
+        "cbm_eV": 6.824064724500172,
+        "cbm_k_cartesian_QE": "0.000000000000000E+000  8.375000000000000E-001  0.000000000000000E+000",
+        "Botti2019_eV": 0.6187,
+        "difference_from_Botti_eV": -0.019451065406641543
+      },
+      {
+        "functional": "TB09",
+        "ecutwfc_Ry": 40,
+        "kmesh": 8,
+        "a_Angstrom": 5.431,
+        "path": "Gamma-X, 81 points; Si VBM at Gamma, CBM on Delta",
+        "gap_eV": 2.3453735193954914,
+        "vbm_eV": 6.212938665360773,
+        "cbm_eV": 8.558312184756264,
+        "cbm_k_cartesian_QE": "0.000000000000000E+000  8.125000000000000E-001  0.000000000000000E+000",
+        "Botti2019_eV": 1.1994,
+        "difference_from_Botti_eV": 1.1459735193954914
+      },
+      {
+        "functional": "TB09",
+        "ecutwfc_Ry": 60,
+        "kmesh": 12,
+        "a_Angstrom": 5.431,
+        "path": "Gamma-X, 81 points; Si VBM at Gamma, CBM on Delta",
+        "gap_eV": 2.356616448283061,
+        "vbm_eV": 6.204271249276909,
+        "cbm_eV": 8.56088769755997,
+        "cbm_k_cartesian_QE": "0.000000000000000E+000  8.125000000000000E-001  0.000000000000000E+000",
+        "Botti2019_eV": 1.1994,
+        "difference_from_Botti_eV": 1.1572164482830611
+      }
+    ]
+  },
+  "corrected": {
+    "pseudo_sha256": "d42702eef81fd417a503bc33e1756081d012b398c46ad9c2955aad963a1760c7",
+    "runs": [
+      {
+        "functional": "PBE",
+        "ecutwfc_Ry": 40,
+        "kmesh": 8,
+        "a_Angstrom": 5.431,
+        "path": "Gamma-X, 81 points; Si VBM at Gamma, CBM on Delta",
+        "gap_eV": 0.598622642515962,
+        "vbm_eV": 6.226433778755706,
+        "cbm_eV": 6.825056421271668,
+        "cbm_k_cartesian_QE": "0.000000000000000E+000  8.375000000000000E-001  0.000000000000000E+000",
+        "Botti2019_eV": 0.6187,
+        "difference_from_Botti_eV": -0.02007735748403805
+      },
+      {
+        "functional": "PBE",
+        "ecutwfc_Ry": 60,
+        "kmesh": 12,
+        "a_Angstrom": 5.431,
+        "path": "Gamma-X, 81 points; Si VBM at Gamma, CBM on Delta",
+        "gap_eV": 0.5992489345933585,
+        "vbm_eV": 6.224815789906813,
+        "cbm_eV": 6.824064724500172,
+        "cbm_k_cartesian_QE": "0.000000000000000E+000  8.375000000000000E-001  0.000000000000000E+000",
+        "Botti2019_eV": 0.6187,
+        "difference_from_Botti_eV": -0.019451065406641543
+      },
+      {
+        "functional": "TB09",
+        "ecutwfc_Ry": 40,
+        "kmesh": 8,
+        "a_Angstrom": 5.431,
+        "path": "Gamma-X, 81 points; Si VBM at Gamma, CBM on Delta",
+        "gap_eV": 0.9249602318599219,
+        "vbm_eV": 5.624599379419627,
+        "cbm_eV": 6.549559611279549,
+        "cbm_k_cartesian_QE": "0.000000000000000E+000  8.500000000000001E-001  0.000000000000000E+000",
+        "Botti2019_eV": 1.1994,
+        "difference_from_Botti_eV": -0.2744397681400781
+      },
+      {
+        "functional": "TB09",
+        "ecutwfc_Ry": 60,
+        "kmesh": 12,
+        "a_Angstrom": 5.431,
+        "path": "Gamma-X, 81 points; Si VBM at Gamma, CBM on Delta",
+        "gap_eV": 0.9238103256071115,
+        "vbm_eV": 5.6231653573071405,
+        "cbm_eV": 6.546975682914252,
+        "cbm_k_cartesian_QE": "0.000000000000000E+000  8.500000000000001E-001  0.000000000000000E+000",
+        "Botti2019_eV": 1.1994,
+        "difference_from_Botti_eV": -0.2755896743928885
+      }
+    ]
+  }
+}

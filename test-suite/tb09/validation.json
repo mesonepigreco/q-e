@@ -1,0 +1,97 @@
+{
+  "date": "2026-10-30",
+  "compiler": "GNU Fortran 11.4",
+  "Libxc": "7.0.0",
+  "FFT": "QE Internal",
+  "checks": {
+    "XClib_CTest_serial": {
+      "passed": 6,
+      "total": 6
+    },
+    "XClib_CTest_MPI_build": {
+      "passed": 6,
+      "total": 6
+    },
+    "expanded_local_TB09_fixture_serial": "passed",
+    "expanded_local_TB09_fixture_MPI_build": "passed",
+    "XClib_build_without_Libxc": "passed",
+    "integration_resume_reuses_archived_XML": "passed"
+  },
+  "integration_launcher": "mpiexec -n 2",
+  "integration": {
+    "functional": "TB09",
+    "cutoff_Ry": 40,
+    "kmesh": 8,
+    "pseudo_sha256": "d42702eef81fd417a503bc33e1756081d012b398c46ad9c2955aad963a1760c7",
+    "results": {
+      "serial": {
+        "c": 0.99370819,
+        "gap_eV": 0.9249604595921955
+      },
+      "mpi-pools-1": {
+        "c": 0.99370815,
+        "max_eigenvalue_difference_Ha": 2.3574526664127404e-08
+      },
+      "mpi-pools-2": {
+        "c": 0.99370814,
+        "max_eigenvalue_difference_Ha": 4.815837689742253e-08
+      },
+      "spin-2": {
+        "c": 0.99370803,
+        "max_eigenvalue_difference_Ha": 1.2442244845534134e-07
+      },
+      "gamma": {
+        "c": 1.18393394
+      },
+      "gamma-mpi": {
+        "c": 1.18393385,
+        "max_eigenvalue_difference_Ha": 8.020650510420779e-08
+      },
+      "forces": {
+        "forces_rejected": true
+      }
+    }
+  },
+  "Borlido_Botti_2019_reanalysis": {
+    "source": "https://doi.org/10.1021/acs.jctc.9b00322.s002",
+    "sha256": "21fc5c597411093c98e6209f3a94e907f6e81b6e27ee87611bcd73bd59ac2db0",
+    "PBE": {
+      "n": 472,
+      "MAE_eV": 1.0540006144067797,
+      "ME_eV": -1.0284353601694916,
+      "MAPE_percent": 46.371489417062584,
+      "false_metals_below_0.01_eV": 31
+    },
+    "BJ": {
+      "n": 471,
+      "MAE_eV": 0.791053906581741,
+      "ME_eV": -0.7271749256900213,
+      "MAPE_percent": 36.58774880879943,
+      "false_metals_below_0.01_eV": 20
+    },
+    "mBJ": {
+      "n": 471,
+      "MAE_eV": 0.49655777070063695,
+      "ME_eV": -0.22211653927813163,
+      "MAPE_percent": 29.593700524120294,
+      "false_metals_below_0.01_eV": 11
+    },
+    "HSE06": {
+      "n": 472,
+      "MAE_eV": 0.5291686228813559,
+      "ME_eV": -0.10224722457627118,
+      "MAPE_percent": 30.798278445572723,
+      "false_metals_below_0.01_eV": 10
+    },
+    "Si": [
+      {
+        "PBE_eV": 0.6187,
+        "mBJ_eV": 1.1994,
+        "experiment_eV": 1.17
+      }
+    ],
+    "missing_mBJ": [
+      "NaYbP2S6"
+    ]
+  }
+}
