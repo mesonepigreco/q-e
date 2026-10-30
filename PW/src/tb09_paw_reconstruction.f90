@@ -11,6 +11,8 @@
   SUBROUTINE PAW_tb09_reset()
     IF(ALLOCATED(tb09_atoms)) DEALLOCATE(tb09_atoms)
     IF(ALLOCATED(tb09_pw_grid)) DEALLOCATE(tb09_pw_grid)
+    IF(ALLOCATED(tb09_neighbors)) DEALLOCATE(tb09_neighbors)
+    tb09_coreless = .FALSE.
   END SUBROUTINE
 
   SUBROUTINE tb09_derivative(r,f,df)
@@ -94,6 +96,15 @@
     t=MAX(0._dp,MIN(1._dp,(r/rc-0.7_dp)/0.3_dp))
     w=1._dp-t**3*(10._dp+t*(-15._dp+6._dp*t))
   END FUNCTION
+
+  SUBROUTINE tb09_partition(theta,wout,weights)
+    REAL(DP), INTENT(IN) :: theta(:)
+    REAL(DP), INTENT(OUT) :: wout,weights(:)
+    REAL(DP) :: total
+    wout=PRODUCT(1._dp-theta); total=SUM(theta)
+    weights=0._dp
+    IF(total>0._dp) weights=(1._dp-wout)*theta/total
+  END SUBROUTINE
 
   SUBROUTINE tb09_nearest(x,dx)
     USE cell_base, ONLY : alat,at,bg
@@ -197,28 +208,55 @@
     END ASSOCIATE
   END SUBROUTINE
 
-  SUBROUTINE tb09_allfields(x,raw,ae,ps,wout)
+  SUBROUTINE tb09_allfields(x,raw,ae,ps,wout,host_atom,host_weight)
     USE ions_base, ONLY : nat,ityp,tau
-    USE cell_base, ONLY : alat
+    USE cell_base, ONLY : alat,bg
     USE atom, ONLY : g=>rgrid
+    INTEGER, OPTIONAL, INTENT(IN) :: host_atom
     REAL(DP), INTENT(IN) :: x(3),raw(6)
     REAL(DP), INTENT(OUT) :: ae(6),ps(6),wout
+    REAL(DP), OPTIONAL, INTENT(OUT) :: host_weight
+    REAL(DP) :: theta(nat),weights(nat),y0
     REAL(DP), ALLOCATABLE :: y(:,:),dy(:,:)
-    REAL(DP) :: dx(3),r,r2(1),v,dv,d2v,t,dt,d2t,dr(1,3)
-    INTEGER :: ia,nt,l2,lm,ip,ll
+    REAL(DP) :: dx(3),r,r2(1),v,dv,d2v,t,dt,d2t,dr(1,3),frac(3),bound(3)
+    INTEGER :: ia,nt,l2,lm,ip,ll,first,last
     ae=raw; ps=raw; wout=1._dp
-    DO ia=1,nat
+    first=1; last=nat
+    theta=0._dp
+    ! For coreless atoms a known host quadrature needs only its overlapping
+    ! neighbors. All field corrections are still summed before the nonlinear
+    ! functional is evaluated. No isolated atomic ratios are added.
+    DO ia=first,last
        nt=ityp(ia)
+       IF(tb09_coreless.AND.PRESENT(host_atom)) THEN
+          IF(.NOT.tb09_neighbors(ia,host_atom)) CYCLE
+       ENDIF
+       IF(tb09_coreless) THEN
+          frac=MATMUL(TRANSPOSE(bg),x/alat-tau(:,ia)); frac=frac-ANINT(frac)
+          bound=SQRT(SUM(bg**2,DIM=1))*tb09_atoms(ia)%radius/alat
+          IF(ANY(ABS(frac)>bound+1.e-12_dp)) CYCLE
+       ENDIF
        CALL tb09_nearest(x-alat*tau(:,ia),dx)
        r=MAX(SQRT(SUM(dx**2)),g(nt)%r(1))
        ASSOCIATE(c=>tb09_atoms(ia))
+       IF(.NOT.tb09_coreless) THEN
        CALL tb09_radial(g(nt)%r,c%core,c%corer,r,v,dv,d2v)
        ps(1)=ps(1)+v; ps(2:4)=ps(2:4)+dv*dx/r; ps(5)=ps(5)+d2v+2._dp*dv/r
        CALL tb09_radial(g(nt)%r,c%tcore,c%tcorer,r,t,dt,d2t)
        ps(6)=ps(6)+t
+       ENDIF
        IF(r<c%radius) THEN
-          wout=wout-tb09_weight(r,c%radius)
-          l2=SIZE(c%dn,2); ALLOCATE(y(1,l2),dy(1,l2)); dr(1,:)=dx; r2(1)=r*r
+          theta(ia)=tb09_weight(r,c%radius)
+          l2=SIZE(c%dn,2)
+          IF(l2==1) THEN
+             y0=1._dp/SQRT(4._dp*ACOS(-1._dp))
+             CALL tb09_radial(g(nt)%r,c%dn(:,1),c%dnr(:,1),r,v,dv,d2v)
+             ae(1)=ae(1)+v*y0; ae(2:4)=ae(2:4)+dv*y0*dx/r
+             ae(5)=ae(5)+(d2v+2._dp*dv/r)*y0
+             CALL tb09_radial(g(nt)%r,c%dt(:,1),c%dtr(:,1),r,t,dt,d2t)
+             ae(6)=ae(6)+t*y0
+          ELSE
+          ALLOCATE(y(1,l2),dy(1,l2)); dr(1,:)=dx; r2(1)=r*r
           CALL ylmr2(l2,1,dr,r2,y)
           DO lm=1,l2
              CALL tb09_radial(g(nt)%r,c%dn(:,lm),c%dnr(:,lm),r,v,dv,d2v)
@@ -237,12 +275,17 @@
              ENDDO
           ENDDO
           DEALLOCATE(y,dy)
+          ENDIF
        ENDIF
        END ASSOCIATE
     ENDDO
     ! Add the common pseudo-core contribution only once, after the deltas.
     ae=ae+(ps-raw)
-    wout=MAX(0._dp,MIN(1._dp,wout))
+    CALL tb09_partition(theta,wout,weights)
+    IF(PRESENT(host_weight)) THEN
+       IF(.NOT.PRESENT(host_atom)) CALL errore('tb09_allfields','Missing partition host',1)
+       host_weight=weights(host_atom)
+    ENDIF
   END SUBROUTINE
 
   SUBROUTINE tb09_model(fields,v)
@@ -302,21 +345,34 @@
       vr(:),smooth(:),integ(:),volint(:),gl(:,:)
     REAL(DP) :: x(3),dx(3),raw(7),ae(6),ps(6),w,rr,stepvol,total,partvol,term,volterm,cpar,average
     INTEGER :: n1,n2,n3,ngrid,ix,iy,iz,ir,ia,ja,nt,m,nx,k,j,lm,q,np,ip,l2,image_bound(3)
-    LOGICAL :: outside
+    LOGICAL :: outside,overlap
     CALL start_clock('tb09_paw')
     IF(ALLOCATED(tb09_atoms)) DEALLOCATE(tb09_atoms)
     ALLOCATE(tb09_atoms(nat))
     DO ia=1,nat
        CALL tb09_build_atom(ia,rho%bec)
     ENDDO
-    ! Non-overlap is an explicit scope restriction of this first PAW path.
+    tb09_coreless=.TRUE.
     DO ia=1,nat
+       IF(ANY(tb09_atoms(ia)%core/=0._dp).OR.ANY(tb09_atoms(ia)%tcore/=0._dp)) tb09_coreless=.FALSE.
+    ENDDO
+    IF(ALLOCATED(tb09_neighbors)) DEALLOCATE(tb09_neighbors)
+    ALLOCATE(tb09_neighbors(nat,nat)); tb09_neighbors=.FALSE.; overlap=.FALSE.
+    DO ia=1,nat
+       tb09_neighbors(ia,ia)=.TRUE.
        DO ja=ia+1,nat
           CALL tb09_nearest(alat*(tau(:,ia)-tau(:,ja)),dx)
-          IF(SQRT(SUM(dx**2))<tb09_atoms(ia)%radius+tb09_atoms(ja)%radius) &
-             CALL errore('PAW_tb09_prepare','Overlapping augmentation spheres are not supported',1)
+          IF(SQRT(SUM(dx**2))<tb09_atoms(ia)%radius+tb09_atoms(ja)%radius) THEN
+             overlap=.TRUE.; tb09_neighbors(ia,ja)=.TRUE.; tb09_neighbors(ja,ia)=.TRUE.
+             IF(.NOT.tb09_coreless.OR.ANY(ABS(upf(1:SIZE(upf))%zp-1._dp)>1.e-12_dp)) &
+                CALL errore('PAW_tb09_prepare','Overlap experiment supports coreless hydrogen only',1)
+             IF(SQRT(SUM(dx**2))<MAX(tb09_atoms(ia)%radius,tb09_atoms(ja)%radius)) &
+                CALL errore('PAW_tb09_prepare','An augmentation sphere contains a neighboring nucleus',1)
+          ENDIF
        ENDDO
     ENDDO
+    IF(overlap) WRITE(stdout,'(5X,A)') &
+       'TB09 PAW: experimental overlapping-sphere hydrogen reconstruction; accuracy must be checked.'
     DO ia=1,nat
        image_bound=FLOOR(2._dp*tb09_atoms(ia)%radius*SQRT(SUM(bg**2,DIM=1))/alat)
        DO iz=-image_bound(3),image_bound(3)
@@ -384,8 +440,8 @@
              IF(w<1.e-14_dp) CYCLE
              x=alat*tau(:,ia)+rr*dx
              CALL tb09_interpolate(x,raw)
-             CALL tb09_allfields(x,raw(1:6),ae,ps,w)
-             w=tb09_weight(rr,tb09_atoms(ia)%radius)*rad(nt)%ww(j)*rr**2
+             CALL tb09_allfields(x,raw(1:6),ae,ps,w,host_atom=ia,host_weight=term)
+             w=term*rad(nt)%ww(j)*rr**2
              integ(k)=integ(k)+w*SQRT(SUM(ae(2:4)**2))/MAX(ae(1),1.e-12_dp)
              volint(k)=volint(k)+w
           ENDDO
@@ -429,7 +485,7 @@
           DO k=1,upf(nt)%paw%iraug
              q=k+(j-1)*m; x=alat*tau(:,ia)+g(nt)%r(k)*dx
              CALL tb09_interpolate(x,raw)
-             CALL tb09_allfields(x,raw(1:6),ae,ps,w)
+             CALL tb09_allfields(x,raw(1:6),ae,ps,w,host_atom=ia)
              radfields(q,:)=ae; smooth(q)=raw(7)
           ENDDO
        ENDDO

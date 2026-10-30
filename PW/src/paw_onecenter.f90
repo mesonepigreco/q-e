@@ -54,6 +54,8 @@ MODULE paw_onecenter
     END TYPE
     TYPE(tb09_paw_atom), ALLOCATABLE, SAVE :: tb09_atoms(:)
     REAL(DP), ALLOCATABLE, SAVE :: tb09_pw_grid(:,:,:,:)
+    LOGICAL, ALLOCATABLE, SAVE :: tb09_neighbors(:,:)
+    LOGICAL, SAVE :: tb09_coreless = .FALSE.
     LOGICAL :: with_small_so = .FALSE.
     !
     ! the following global variable controls the use of several fine-grained clocks

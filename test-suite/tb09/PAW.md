@@ -6,7 +6,8 @@ is used as an independent reference executable; its TB09 algorithm is not
 transplanted into QE. No gap is used to fit `c` or any other parameter.
 
 Supported scope is currently CPU, nonmagnetic (`nspin=1`), all-PAW species,
-without spin orbit and without overlapping augmentation spheres. Forces,
+without spin orbit. Non-overlapping augmentation spheres are the previously
+tested scope; a new coreless-hydrogen overlap experiment is described below. Forces,
 stress and relaxation remain disabled. TB09 has no parent exchange energy;
 printed SCF energies must not be used as material total energies. Optical
 matrix elements and PAW linear response have not been validated by this work.
@@ -110,8 +111,8 @@ sensitivity, checks of core tails / periodic images for each dataset, and
 broader material coverage. The present frozen smooth-core tail treatment uses
 the nearest image of each atom; tails from additional images are neglected.
 This approximation must be bounded or replaced before claiming a general
-periodic all-electron reconstruction. Only non-overlapping augmentation
-spheres are supported; this is especially relevant to high-pressure systems.
+periodic all-electron reconstruction. The previous validation covers only non-overlapping augmentation spheres;
+this is especially relevant to high-pressure systems.
 
 Borlido/Botti's Si references are 1.1994 eV for VASP PAW and 1.176 eV for
 WIEN2k all-electron in the [2020 validation supplement](https://doi.org/10.1021/acs.jctc.0c00214.s004). They are distinct
@@ -149,3 +150,43 @@ not part of the QE implementation.
 The numerical checks and explicit limits are recorded in
 [paw-validation.json](paw-validation.json). No large hydrogen PW runs were
 performed and no upstream merge request was opened.
+
+
+## Hydrogen overlap experiment: checkpoint, 2026-10-30
+
+The selected hydrogen dataset is the locally tested
+`H.pbe-kjpaw_psl.1.0.0.UPF`, with original SHA256
+`dd48be99c7a91c4163ed123cdac938af189a9f62f382c41e3f664d00a586839d`.
+Its augmentation radius is approximately 1.2523 bohr, so molecular hydrogen
+at the intended pressures has overlapping augmentation spheres. The choice
+is based on the available local energetic tests, not a demonstrated QMC
+ranking of several PAW datasets. No refractive-index result is available yet.
+
+This checkpoint adds an experimental overlap partition:
+`w_out = product(1-theta_a)` and
+`w_a = (1-w_out)*theta_a/sum(theta_a)`. All atomic field corrections are
+summed before evaluating the nonlinear model. Coreless neighbor filtering,
+a bounding-box rejection and a spherical-channel fast path reduce its cost.
+The overlap branch currently permits only coreless hydrogen, rejects spheres
+containing another nucleus, and retains the self-image overlap guard.
+
+The serial `qe_pw_exe` target compiles successfully. The new overlap path has
+not yet been tested with an SCF calculation, analytic partition checks or
+optical calculations. The Si numbers above predate this checkpoint. In
+particular, partition normalization does not establish the validity of an
+overlapping one-center PAW reconstruction: cross-atom reconstruction terms
+and positivity of reconstructed fields require investigation. Treat this
+commit as a work checkpoint, not a validated high-pressure PAW implementation.
+
+Resume with small hydrogen checks, then the pristine C2/c-24 SSCHA centroids
+at 150, 175, 200, 225 and 250 GPa. Compare historical TB09, BLYP plus a 0.8 eV
+scissor, corrected NC TB09 and this PAW path at 532.5 nm using controlled
+geometries and optical settings. No calculation on a 300+ atom cell should
+be launched on the local computer. PAW optical matrix elements and the
+separate epsilon normalization correction still require validation.
+
+Local provenance and the fixed-geometry energetic analysis are retained in
+the ignored `audit/hydrogen-paw-pristine/` directory, including
+`selected-paw.json`, `analyze_local_pseudos.py` and
+`local-pseudo-energetics.json`. These local research files, pseudopotentials
+and build artifacts are not included in the Git commit.
