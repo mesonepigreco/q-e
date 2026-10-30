@@ -18,6 +18,9 @@ MODULE pseudo_types
   ! Additional data to make a PAW setup out of an US pseudo,
   ! they are all stored on a radial grid:
   TYPE paw_in_upf
+     ! Positive frozen-core kinetic density, 1/2 sum |grad phi|^2, Ha/bohr^3.
+     LOGICAL :: has_tb09_tau = .FALSE.
+     REAL(DP),ALLOCATABLE :: ae_tau_core(:), ps_tau_core(:)
      REAL(DP),ALLOCATABLE :: ae_rho_atc(:) ! AE core charge (pseudo ccharge
      ! is already included in upf)
      REAL(DP),ALLOCATABLE :: pfunc(:,:,:),&! Psi_i(r)*Psi_j(r)
@@ -188,6 +191,9 @@ CONTAINS
 
   SUBROUTINE deallocate_paw_in_upf( paw )
     TYPE( paw_in_upf ), INTENT(INOUT) :: paw
+    paw%has_tb09_tau = .FALSE.
+    IF( ALLOCATED( paw%ae_tau_core ) ) DEALLOCATE ( paw%ae_tau_core )
+    IF( ALLOCATED( paw%ps_tau_core ) ) DEALLOCATE ( paw%ps_tau_core )
     IF( ALLOCATED( paw%ae_rho_atc ) ) DEALLOCATE ( paw%ae_rho_atc )
     IF( ALLOCATED( paw%aewfc_rel ) )  DEALLOCATE (paw%aewfc_rel )
     IF( ALLOCATED( paw%pfunc ) )      DEALLOCATE ( paw%pfunc )
@@ -324,6 +330,7 @@ CONTAINS
     upf%nqlc = 0
     upf%qqq_eps = 0.0
     upf%has_wfc = .false.
+    upf%paw%has_tb09_tau = .FALSE.
     upf%paw_data_format = 0
     upf%tpawp = .false.
     upf%has_gipaw = .false.

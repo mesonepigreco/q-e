@@ -108,7 +108,7 @@ MODULE paw_init
     INTEGER :: info(0:nproc_image-1,ntyp)
     !
     ! FIXME: the PAW EXX code is not parallelized (but it is very fast)
-    IF ( xclib_dft_is('hybrid') ) RETURN
+    IF ( xclib_dft_is('hybrid') .OR. xclib_dft_is('TB09') ) RETURN
     !
     IF (ionode) &
     WRITE(stdout,"(5x,a)") &
@@ -327,8 +327,8 @@ MODULE paw_init
       IF(.NOT. upf(nt)%tpawp) CYCLE types
       ! only allocate radial grid integrator for atomic species
       ! that are actually present on this parallel node:
-      DO ia = ia_s, ia_e
-         IF (ityp(ia) == nt ) THEN
+      DO ia = 1, nat
+         IF (ityp(ia) == nt .AND. (xclib_dft_is('TB09') .OR. (ia>=ia_s.AND.ia<=ia_e))) THEN
             IF (upf(nt)%lmax_rho == 0) THEN
                ! no need for more than one direction, when it is spherical!
                lmax_safe = 0
@@ -347,6 +347,7 @@ MODULE paw_init
                 ENDIF
             ENDIF
             !
+            IF (xclib_dft_is('TB09')) lmax_safe = MAX(lmax_safe,16)
             CALL PAW_rad_init( lmax_safe, lmax_add, rad(nt) )
             max_mesh = MAX( max_mesh, g(nt)%mesh )
             max_nx = MAX( max_nx, rad(nt)%nx )

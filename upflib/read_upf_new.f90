@@ -738,6 +738,7 @@ CONTAINS
     CALL xmlr_opentag( capitalize_if_v2('pp_paw') )
     CALL get_attr ('paw_data_format', upf%paw_data_format)
     CALL get_attr ('core_energy', upf%paw%core_energy) 
+    CALL get_attr ('tb09_core_tau', upf%paw%has_tb09_tau )
     ! Full occupation (not only > 0 ones)
     ALLOCATE (upf%paw%oc(upf%nbeta) )
     ALLOCATE (upf%paw%ae_rho_atc(upf%mesh) )
@@ -750,6 +751,13 @@ CONTAINS
     ! All-electron local potential
     CALL xmlr_readtag( capitalize_if_v2('pp_ae_vloc'), &
          upf%paw%ae_vloc(1:upf%mesh) )
+    IF (upf%paw%has_tb09_tau) THEN
+       ALLOCATE(upf%paw%ae_tau_core(upf%mesh), upf%paw%ps_tau_core(upf%mesh))
+       CALL xmlr_readtag(capitalize_if_v2('pp_ae_taucore'), upf%paw%ae_tau_core, IERR=ierr)
+       IF (ierr /= 0) RETURN
+       CALL xmlr_readtag(capitalize_if_v2('pp_ps_taucore'), upf%paw%ps_tau_core, IERR=ierr)
+       IF (ierr /= 0) RETURN
+    ENDIF
     CALL xmlr_closetag () ! end pp_paw
     !
     ALLOCATE(upf%paw%pfunc(upf%mesh, upf%nbeta,upf%nbeta) )

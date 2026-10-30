@@ -805,6 +805,7 @@ CONTAINS
     IF ( upf%tpawp ) THEN
        call add_attr( 'paw_data_format', upf%paw_data_format )
        call add_attr( 'core_energy', upf%paw%core_energy )
+       call add_attr( 'tb09_core_tau', upf%paw%has_tb09_tau )
        CALL xmlw_opentag( capitalize_if_v2('pp_paw') )
        ! Full occupation (not only > 0 ones)
        call add_attr( 'size', upf%nbeta )
@@ -818,6 +819,12 @@ CONTAINS
        call add_attr( 'size', upf%mesh )
        CALL xmlw_writetag( capitalize_if_v2('pp_ae_vloc'), &
             upf%paw%ae_vloc(1:upf%mesh) )
+       IF (upf%paw%has_tb09_tau) THEN
+          CALL add_attr('units', 'Ha/bohr^3; tau=0.5*sum|grad(phi)|^2')
+          CALL xmlw_writetag(capitalize_if_v2('pp_ae_taucore'), upf%paw%ae_tau_core)
+          CALL add_attr('units', 'Ha/bohr^3; tau=0.5*sum|grad(phi)|^2')
+          CALL xmlw_writetag(capitalize_if_v2('pp_ps_taucore'), upf%paw%ps_tau_core)
+       ENDIF
        CALL xmlw_closetag () ! end pp_paw
     END IF
     !

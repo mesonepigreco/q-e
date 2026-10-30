@@ -464,6 +464,12 @@ SUBROUTINE upf_bcast(upf, ionode, ionode_id, comm)
   IF (upf%tpawp) THEN
      CALL mp_bcast (upf%paw_data_format,ionode_id,comm )
      CALL mp_bcast (upf%paw%core_energy,ionode_id,comm )
+     CALL mp_bcast (upf%paw%has_tb09_tau,ionode_id,comm )
+     IF (upf%paw%has_tb09_tau) THEN
+        IF (.NOT.ionode) ALLOCATE(upf%paw%ae_tau_core(upf%mesh),upf%paw%ps_tau_core(upf%mesh))
+        CALL mp_bcast(upf%paw%ae_tau_core,ionode_id,comm)
+        CALL mp_bcast(upf%paw%ps_tau_core,ionode_id,comm)
+     ENDIF
      IF ( .not. ionode ) THEN
         ALLOCATE( upf%paw%oc(upf%nbeta) )
         ALLOCATE( upf%paw%ae_rho_atc(upf%mesh) )

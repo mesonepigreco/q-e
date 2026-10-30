@@ -310,3 +310,5 @@ clean :
 	- /bin/rm -f *.x *.o *.a *~ *_tmp.f90 *.d *.mod *.i *.L
 
 include make.depend
+
+paw_onecenter.o : tb09_paw_reconstruction.f90

@@ -45,6 +45,7 @@ SUBROUTINE clean_pw( lflag )
   USE noncollin_module,     ONLY : deallocate_noncol
   USE dynamics_module,      ONLY : deallocate_dyn_vars
   USE paw_init,             ONLY : deallocate_paw_internals
+  USE paw_onecenter,        ONLY : PAW_tb09_reset
   USE atom,                 ONLY : msh, rgrid
   USE radial_grids,         ONLY : deallocate_radial_grid
   USE wannier_new,          ONLY : use_wannier
@@ -207,6 +208,7 @@ SUBROUTINE clean_pw( lflag )
   !
   ! ... additional arrays for PAW
   !
+  CALL PAW_tb09_reset()
   CALL deallocate_paw_internals()
   !
   ! ... arrays for real-space algorithm

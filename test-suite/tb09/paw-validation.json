@@ -1,0 +1,97 @@
+{
+  "date": "2026-10-30",
+  "status": "experimental, not production validation",
+  "branch": "feature/tb09-paw-reconstruction",
+  "source_base_commit": "8bd841999511255885a87914db29ed3cb83591ca",
+  "atomic_data": "paired open JTH-PBE2.0 Si XML/UPF",
+  "nat": 2,
+  "lattice_A": 5.431,
+  "spin": 1,
+  "SOC": false,
+  "Si": {
+    "40Ry_320Ry_8mesh_81path_eV": 1.1324453006502795,
+    "60Ry_640Ry_8mesh_81path_eV": 1.1323423099559529,
+    "plane_wave_refinement_difference_eV": -0.00010299069432662122,
+    "c_60Ry": 1.13229813,
+    "reference_WIEN2k_mBJLDA_eV": 1.176,
+    "reference_VASP_mBJ_LDA_eV": 1.1994,
+    "difference_from_WIEN2k_eV": -0.04365769004404707,
+    "difference_from_VASP_eV": -0.06705769004404716,
+    "corrected_NC_60Ry_12mesh_eV": 0.923810325607,
+    "PAW_minus_corrected_NC_eV": 0.20853198434895281,
+    "same_cell_as_published_ICSD_proved": false,
+    "kmesh_asymptotic_convergence_proved": false
+  },
+  "analytic_tests": {
+    "radial": true,
+    "Cartesian_s_p_tau_max_abs_error": 1.79683e-09,
+    "skew_cell_images_max_abs_error": 8.32667e-16
+  },
+  "XClib_ctests_passed": 6,
+  "guards": {
+    "missing-core": {
+      "exit": 1,
+      "expected": "requires explicit AE and PS frozen-core kinetic densities",
+      "passed": true
+    },
+    "magnetic": {
+      "exit": 1,
+      "expected": "requires nonmagnetic, all-PAW species",
+      "passed": true
+    },
+    "overlap": {
+      "exit": 1,
+      "expected": "Overlapping augmentation spheres are not supported",
+      "passed": true
+    },
+    "forces": {
+      "exit": 1,
+      "expected": "total-energy forces and stress are not available",
+      "passed": true
+    }
+  },
+  "mpi": {
+    "1": {
+      "ranks": 2,
+      "pools": 1,
+      "max_eigenvalue_difference_from_serial_eV": 2.245795631150571e-05,
+      "gap_bracket_eV": 1.176327316487054,
+      "c": 1.14180914
+    },
+    "2": {
+      "ranks": 2,
+      "pools": 2,
+      "max_eigenvalue_difference_from_serial_eV": 4.566963122343282e-06,
+      "gap_bracket_eV": 1.1763267798285684,
+      "c": 1.14180914
+    }
+  },
+  "UPF_roundtrip_relative_errors": {
+    "PP_AE_TAUCORE": 1.088158943879967e-16,
+    "PP_PS_TAUCORE": 2.907975931801893e-16
+  },
+  "ABINIT": {
+    "version": "10.8.3",
+    "commit": "edbeb6602f0856ff3d74d9b7c6cec29eb01fff99",
+    "Libxc": "7.0.0",
+    "official_t23_SCF_passed": true,
+    "official_t23_c": 1.20694,
+    "official_t23_nsteps": 19,
+    "matched_PAW_gap_eV": null,
+    "matched_PAW_status": "SCF divergence in tested settings; no accepted gap"
+  },
+  "limits": [
+    "CPU/nonmagnetic/all-PAW only",
+    "no overlapping augmentation spheres or spin orbit",
+    "nearest-image frozen smooth-core tails",
+    "angular and smooth-reference sensitivity not established",
+    "PAW partial-wave completeness not established",
+    "optical PAW matrix elements not validated",
+    "no production hydrogen calculations performed"
+  ],
+  "final_serial_build_check": {
+    "passed": true,
+    "max_eigenvalue_difference_from_pilot_eV": 4.041060819304221e-09,
+    "gap_bracket_eV": 1.17632677893707
+  }
+}

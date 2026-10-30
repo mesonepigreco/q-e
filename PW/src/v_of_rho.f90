@@ -21,6 +21,8 @@ SUBROUTINE v_of_rho( rho, rho_core, rhog_core, tau_core, &
   USE ions_base,        ONLY : nat, tau
   USE ldaU,             ONLY : lda_plus_u
   USE xc_lib,           ONLY : xclib_dft_is
+  USE paw_variables,    ONLY : okpaw
+  USE paw_onecenter,    ONLY : PAW_tb09_prepare
   USE scf,              ONLY : scf_type
   USE cell_base,        ONLY : alat
   USE io_global,        ONLY : stdout
@@ -66,7 +68,10 @@ SUBROUTINE v_of_rho( rho, rho_core, rhog_core, tau_core, &
   !$acc data copyin(rho,v)
   !$acc data copyin(rho%of_r,rho%of_g,rho_core,rhog_core) copyout(v%of_r,v%kin_r)
   !
-  IF (xclib_dft_is('meta')) THEN
+  IF (okpaw .AND. xclib_dft_is('TB09')) THEN
+     CALL PAW_tb09_prepare(rho, v%of_r, etxc, vtxc)
+     v%kin_r = 0._dp
+  ELSEIF (xclib_dft_is('meta')) THEN
      CALL v_xc_meta( rho, rho_core, rhog_core, tau_core, etxc, vtxc, v%of_r, v%kin_r )
   ELSE
      CALL v_xc( rho, rho_core, rhog_core, etxc, vtxc, v%of_r )

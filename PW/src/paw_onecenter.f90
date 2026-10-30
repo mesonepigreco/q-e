@@ -25,6 +25,7 @@ MODULE paw_onecenter
     IMPLICIT NONE
     !
     ! entry points:
+    PUBLIC :: PAW_tb09_prepare, PAW_tb09_reset
     PUBLIC :: PAW_potential   ! prepare paw potential and store it,
                               ! also computes energy if required
     PUBLIC :: PAW_ddot        ! error estimate for mix_rho
@@ -45,6 +46,14 @@ MODULE paw_onecenter
     REAL(DP), ALLOCATABLE :: g_lm(:,:,:)
     !! potential density as lm components
     !
+    TYPE tb09_paw_atom
+       REAL(DP), ALLOCATABLE :: dn(:,:), dnr(:,:), dt(:,:), dtr(:,:)
+       REAL(DP), ALLOCATABLE :: core(:), corer(:), tcore(:), tcorer(:)
+       REAL(DP), ALLOCATABLE :: v_ae(:,:), v_ps(:,:)
+       REAL(DP) :: radius
+    END TYPE
+    TYPE(tb09_paw_atom), ALLOCATABLE, SAVE :: tb09_atoms(:)
+    REAL(DP), ALLOCATABLE, SAVE :: tb09_pw_grid(:,:,:,:)
     LOGICAL :: with_small_so = .FALSE.
     !
     ! the following global variable controls the use of several fine-grained clocks
@@ -466,6 +475,16 @@ MODULE paw_onecenter
     REAL(DP), ALLOCATABLE :: vx(:,:), vc(:,:)
     REAL(DP), PARAMETER   :: eps = 1.e-30_DP, div3=1._DP/3._DP
     !
+    IF (xclib_dft_is('TB09')) THEN
+       IF (.NOT.ALLOCATED(tb09_atoms)) CALL errore('PAW_xc_potential','Missing TB09 reconstruction',1)
+       IF (i%ae==1) THEN
+          v_lm(:,:,1)=tb09_atoms(i%a)%v_ae
+       ELSE
+          v_lm(:,:,1)=tb09_atoms(i%a)%v_ps
+       ENDIF
+       IF (PRESENT(energy)) energy=0._dp
+       RETURN
+    ENDIF
     IF (TIMING) CALL start_clock( 'PAW_xc_pot' )
     !$acc data copyin( rho_lm, rho_core ) copyout( v_lm )
     !$acc data copyin( rad(i%t:i%t), rad(i%t)%ylm, rad(i%t)%ww, rad(i%t)%dylmp, rad(i%t)%dylmt )
@@ -1507,6 +1526,7 @@ MODULE paw_onecenter
     !! Update the change of the descreening coefficients:
     !! $$ D_{ij}=\int dv_{H_{xc}} p_{ij}-\int dvt_{H_{xc}}(pt_{ij}+\text{augfun}_{ij}) $$
     !
+    USE xc_lib,            ONLY : xclib_dft_is
     USE atom,              ONLY : g => rgrid
     USE ions_base,         ONLY : nat, ityp
     USE mp,                ONLY : mp_comm_split, mp_comm_free, mp_size, mp_rank
@@ -1551,6 +1571,8 @@ MODULE paw_onecenter
     REAL(DP) :: sgn        ! +1 for AE -1 for PS
     INTEGER  :: ipert
     !
+    IF (xclib_dft_is('TB09')) &
+       CALL errore('PAW_dpotential','TB09 PAW linear response is not implemented',1)
     CALL start_clock( 'PAW_dpot' )
     !
     ! Some initialization
@@ -2803,4 +2825,5 @@ MODULE paw_onecenter
   END SUBROUTINE compute_g
   !
   !
+#include "tb09_paw_reconstruction.f90"
 END MODULE paw_onecenter

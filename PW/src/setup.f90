@@ -122,7 +122,7 @@ SUBROUTINE setup()
   ! ... check for features not implemented with US-PP or PAW
   !
   IF ( okvan .OR. okpaw ) THEN
-     IF ( xclib_dft_is('meta') ) CALL errore( 'setup', &
+     IF ( xclib_dft_is('meta') .AND. .NOT.(okpaw .AND. xclib_dft_is('TB09')) ) CALL errore( 'setup', &
                                'Meta-GGA not implemented with USPP/PAW', 1 )
      IF ( noncolin .AND. lberry)  CALL errore( 'setup', &
        'Noncolinear Berry Phase/electric not implemented with USPP/PAW', 1 )
@@ -132,6 +132,15 @@ SUBROUTINE setup()
                   'Orbital Magnetization not implemented with USPP/PAW', 1 )
   END IF
 
+  IF (okpaw .AND. xclib_dft_is('TB09')) THEN
+     IF (nspin/=1 .OR. ANY(.NOT.upf(1:ntyp)%tpawp)) &
+        CALL errore('setup','PAW TB09 currently requires nonmagnetic, all-PAW species',1)
+     DO na=1,ntyp
+        IF (.NOT.upf(na)%paw%has_tb09_tau) &
+           CALL errore('setup','PAW TB09 requires explicit AE and PS frozen-core kinetic densities',1)
+     ENDDO
+     IF (ANY(upf(1:ntyp)%has_so)) CALL errore('setup','PAW TB09 spin-orbit is not implemented',1)
+  ENDIF
   IF ( xclib_dft_is('TB09') ) THEN
      IF (lforce .OR. tstress .OR. lbfgs .OR. lmd) CALL errore( 'setup', &
        'TB09 is a model potential: total-energy forces and stress are not available', 1 )

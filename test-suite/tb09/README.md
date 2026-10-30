@@ -1,5 +1,8 @@
 # TB09 / Tran–Blaha mBJLDA regression and silicon benchmark
 
+This feature branch also contains an [experimental PAW reconstruction](PAW.md).
+The NC validation and published results below predate that extension.
+
 Upstream accepts contributions through GitLab merge requests; GitHub is a
 mirror (see [the submission template](../../.github/pull_request_template.md)).
 No upstream submission is part of this benchmark.
